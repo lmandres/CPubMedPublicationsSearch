@@ -31,7 +31,7 @@ static size_t WriteCallback(void *contents, size_t size, size_t nmemb, void **us
 int main(int argc, char *argv[]) {
 
     char *efetchURL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi";
-    char *efetchPostData = "retmode=xml&db=pubmed&email=lmandres%40yahoo.com&tool=PubMed-Publications-Search&api_key=6da05439891144f16a399d871be54dead708&id=31454628";
+    char *efetchPostData = "retmode=xml&db=pubmed&email=emailaddress%40example.com&tool=CPubMedPublicationsSearch&id=31454628";
 
     CURL *curl;
     CURLcode res;
