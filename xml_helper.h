@@ -554,34 +554,38 @@ Map *get_element_map(Map *element_dictionary_in, char *element_path_chars_in) {
 
 Map *get_xml_map(char *xml_string) {
 
-    char *element_path;
-    Map *element_dictionary;
-    Map *current_element_data;
+    typedef struct ElementStruct {
+        char *element_path;
+        Map *element_dictionary;
+        Map *current_element_data;
+    } ElementStruct;
 
-    void start_element_handler(void *user_data, const char *name, const char **attrs) {
+    void start_element_handler(void *user_data_ptr, const char *name, const char **attrs) {
 
+        ElementStruct *user_data = user_data_ptr;
+        
         Map *data_map;
         Map *attrs_map = map_new(1);
         List *cdata_list = list_new(1);
 
-        size_t new_length = strlen(element_path)+strlen(name)+2;
+        size_t new_length = strlen(user_data->element_path)+strlen(name)+2;
         char *new_path;
         char *map_path;
 
-        new_path = realloc(element_path, (new_length+1)*sizeof(char));
+        new_path = realloc(user_data->element_path, (new_length+1)*sizeof(char));
         if (new_path == NULL) {
             printf("ERROR: Failed realloc()\n");
-            free(element_path);
+            free(user_data->element_path);
             exit(1);
         }
         sprintf(new_path, "%s<%s>", new_path, name);
         new_path[new_length] = '\0';
-        element_path = new_path;
+        user_data->element_path = new_path;
 
-        if (!map_in(current_element_data, element_path)) {
-            map_set(current_element_data, element_path, map_new(2));
+        if (!map_in(user_data->current_element_data, user_data->element_path)) {
+            map_set(user_data->current_element_data, user_data->element_path, map_new(2));
         }
-        data_map = map_get(current_element_data, element_path);
+        data_map = map_get(user_data->current_element_data, user_data->element_path);
 
         for (int i = 0; attrs[i] != NULL && attrs[i+1] != NULL; i+=2) {
 
@@ -602,12 +606,14 @@ Map *get_xml_map(char *xml_string) {
         map_set(data_map, "attrs", attrs_map);
         map_set(data_map, "cdata", cdata_list);
 
-        append_element_dict(element_dictionary, element_path);
+        append_element_dict(user_data->element_dictionary, user_data->element_path);
     }
 
-    void character_data_handler(void *user_data, const char *value, int len) {
+    void character_data_handler(void *user_data_ptr, const char *value, int len) {
 
-        Map *data_map = map_get(current_element_data, element_path);
+        ElementStruct *user_data = user_data_ptr;
+
+        Map *data_map = map_get(user_data->current_element_data, user_data->element_path);
         List *cdata_list = map_get(data_map, "cdata");
 
         char *cdata_value;
@@ -619,30 +625,35 @@ Map *get_xml_map(char *xml_string) {
         list_append(cdata_list, cdata_value);
     }
 
-    void end_element_handler(void *user_data, const char *name) {
+    void end_element_handler(void *user_data_ptr, const char *name) {
 
-        Map *data_map = map_get(current_element_data, element_path);
+        ElementStruct *user_data = user_data_ptr;
+
+        Map *data_map = map_get(user_data->current_element_data, user_data->element_path);
         List *cdata_list = map_get(data_map, "cdata");
         Map *attrs_map = map_get(data_map, "attrs");
 
-        char *last_element = strrchr(element_path, '<');
+        char *last_element = strrchr(user_data->element_path, '<');
         char *new_path;
 
         append_element_data(
-            element_dictionary,
-            element_path,
+            user_data->element_dictionary,
+            user_data->element_path,
             attrs_map,
             cdata_list
         );
 
         memset(last_element, '\0', strlen(last_element)*sizeof(char));
-        new_path = realloc(element_path, (strlen(element_path)+1)*sizeof(char));
+        new_path = realloc(
+            user_data->element_path,
+            (strlen(user_data->element_path)+1)*sizeof(char)
+        );
         if (new_path == NULL) {
             printf("ERROR: Failed realloc()\n");
-            free(element_path);
+            free(user_data->element_path);
             exit(1);
         }
-        element_path = new_path;
+        user_data->element_path = new_path;
     }
 
     int buffer_len = EXPAT_BUFFER_LENGTH;
@@ -652,16 +663,20 @@ Map *get_xml_map(char *xml_string) {
     int xml_done = 0;
     char *new_ptr;
 
-    element_path = malloc(sizeof(char));
-    memset(element_path, '\0', 1);
+    ElementStruct *element_data = malloc(sizeof(ElementStruct));
+    Map *return_map;
 
-    element_dictionary = map_new(1);
-    current_element_data = map_new(1);
+    element_data->element_path = malloc(sizeof(char));
+    memset(element_data->element_path, '\0', 1);
+
+    element_data->element_dictionary = map_new(1);
+    element_data->current_element_data = map_new(1);
 
     XML_Parser parser = XML_ParserCreate(NULL);
 
     XML_SetElementHandler(parser, start_element_handler, end_element_handler);
     XML_SetCharacterDataHandler(parser, character_data_handler);
+    XML_SetUserData(parser, element_data);
 
     xml_ptr = xml_string;
     while (1) {
@@ -690,8 +705,11 @@ Map *get_xml_map(char *xml_string) {
 
     XML_ParserFree(parser);
 
-    free_current_element_data(current_element_data);
-    free(element_path);
+    return_map = element_data->element_dictionary;
 
-    return element_dictionary;
+    free_current_element_data(element_data->current_element_data);
+    free(element_data->element_path);
+    free(element_data);
+
+    return return_map;
 }
