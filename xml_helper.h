@@ -667,7 +667,7 @@ Map *get_xml_map(char *xml_string) {
     Map *return_map;
 
     element_data->element_path = malloc(sizeof(char));
-    memset(element_data->element_path, '\0', 1);
+    memset(element_data->element_path, '\0', sizeof(char));
 
     element_data->element_dictionary = map_new(1);
     element_data->current_element_data = map_new(1);
