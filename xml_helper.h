@@ -555,9 +555,9 @@ Map *get_element_map(Map *element_dictionary_in, char *element_path_chars_in) {
 Map *get_xml_map(char *xml_string) {
 
     typedef struct ElementStruct {
-        char *element_path;
         Map *element_dictionary;
         Map *current_element_data;
+        char *element_path;
     } ElementStruct;
 
     void start_element_handler(void *user_data_ptr, const char *name, const char **attrs) {
